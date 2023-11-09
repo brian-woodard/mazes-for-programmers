@@ -2,11 +2,13 @@
 #include <unistd.h>
 #include <SDL.h>
 #include <SDL_opengl.h>
-#include <SDL_image.h>
 #include "Grid.h"
 #include "BinaryTree.h"
 #include "Sidewinder.h"
 #include "Instrumentor.h"
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 
 enum T_MazeType
 {
@@ -187,26 +189,6 @@ void render(const Grid& Grid)
 }
 
 
-SDL_Surface* load_image(std::string path)
-{
-   SDL_Surface* img = IMG_Load(path.c_str());
-
-   if (img == nullptr)
-   {
-      std::cout << "could not load image: " << IMG_GetError() << std::endl;
-      return nullptr;
-   }
-
-   SDL_Surface* optimized_img = SDL_ConvertSurface(img, screen_surface->format, 0);
-
-   if (optimized_img == nullptr)
-      std::cout << "could not optimize image: " << SDL_GetError() << std::endl;
-
-   SDL_FreeSurface(img);
-
-   return optimized_img;
-}
-
 void show_usage()
 {
    std::cout << "Usage:" << std::endl;
@@ -341,9 +323,6 @@ int main(int argc, char** argv)
       {
          screen_surface = SDL_GetWindowSurface(window);
 
-         // initialize PNG image loading
-         IMG_Init(IMG_INIT_PNG);
-
          // create OpenGL context
          context = SDL_GL_CreateContext(window);
 
@@ -362,20 +341,26 @@ int main(int argc, char** argv)
    }
 
    // load texture image
-   SDL_Surface* image = load_image("./4bit_road_tiles.png");
+   int width;
+   int height;
+   int bpp;
+   unsigned char* image = stbi_load("./4bit_road_tiles.png", &width, &height, &bpp, 4);
 
    glGenTextures(1, &texture_id);
    glBindTexture(GL_TEXTURE_2D, texture_id);
  
    int mode = GL_RGB;
  
-   if (image->format->BytesPerPixel == 4)
+   if (bpp == 4)
       mode = GL_RGBA;
  
-   glTexImage2D(GL_TEXTURE_2D, 0, mode, image->w, image->h, 0, mode, GL_UNSIGNED_BYTE, image->pixels);
+   glTexImage2D(GL_TEXTURE_2D, 0, mode, width, height, 0, mode, GL_UNSIGNED_BYTE, image);
  
    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+   if (image)
+      stbi_image_free(image);
 
    while (!quit)
    {
